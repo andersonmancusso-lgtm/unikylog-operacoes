@@ -50,7 +50,16 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
         <button id="loginBtn">Entrar</button>
         <button id="signupBtn" class="secondary">Criar acesso</button>
       </div>
+      <button id="forgotBtn" class="linkbtn">Esqueci minha senha</button>
       <button id="changeConnection" class="linkbtn">Alterar conexão</button>
+    </section>
+
+    <section id="resetView" class="card hidden">
+      <h2>Criar nova senha</h2>
+      <p class="muted">Digite uma nova senha para o seu acesso.</p>
+      <label>Nova senha<input id="newPassword" type="password" autocomplete="new-password" minlength="6" /></label>
+      <label>Confirmar nova senha<input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" /></label>
+      <button id="savePasswordBtn">Salvar nova senha</button>
     </section>
 
     <section id="appView" class="hidden">
@@ -184,14 +193,28 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
   </main>
   <div id="toast" class="toast hidden"></div>
   <script>
-let sb=null, me=null, profile=null, deferredPrompt=null;
+let sb=null, me=null, profile=null, deferredPrompt=null, recoveryMode=false;
 const $=id=>document.getElementById(id);
 const DEFAULT_SB_URL='https://psdyvqqgbjclgoyzipoi.supabase.co';
 const DEFAULT_SB_KEY='sb_publishable_PEAXy-SMpDXSfVO7fYL1Aw_43N8z-5r';
 const cfg=()=>({url:localStorage.getItem('uniky_sb_url')||DEFAULT_SB_URL,key:localStorage.getItem('uniky_sb_key')||DEFAULT_SB_KEY});
 function toast(s){$('toast').textContent=s;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),2600)}
-function show(id){['setupView','authView','appView'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
-async function init(){const c=cfg();if(!c.url||!c.key){show('setupView');return}sb=supabase.createClient(c.url,c.key);const {data:{session}}=await sb.auth.getSession();if(!session){show('authView');return}await enter(session.user)}
+function show(id){['setupView','authView','resetView','appView'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
+async function init(){
+  const c=cfg();
+  if(!c.url||!c.key){show('setupView');return}
+  sb=supabase.createClient(c.url,c.key);
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){recoveryMode=true;show('resetView')}
+  });
+  const hash=new URLSearchParams(location.hash.replace(/^#/,''));
+  if(hash.get('type')==='recovery'){recoveryMode=true;show('resetView');return}
+  await new Promise(r=>setTimeout(r,250));
+  if(recoveryMode)return;
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){show('authView');return}
+  await enter(session.user)
+}
 async function enter(user){me=user;show('appView');await loadProfile();await loadEmployees();await loadOps();await loadAllMessages();subscribeRealtime()}
 async function loadProfile(){const {data,error}=await sb.from('profiles').select('*').eq('id',me.id).single();if(error){toast('Perfil ainda não disponível');return}profile=data;$('who').textContent=profile.full_name||me.email;$('roleText').textContent=profile.role==='admin'?'Administrador':'Funcionário';$('profileName').value=profile.full_name||'';$('profilePhone').value=profile.phone||'';document.querySelectorAll('.adminOnly').forEach(el=>el.classList.toggle('hidden',profile.role!=='admin'))}
 async function loadEmployees(){if(!profile||profile.role!=='admin')return;const {data}=await sb.from('profiles').select('id,full_name,email').order('full_name');$('assignedTo').innerHTML='<option value="">Não atribuído</option>'+((data||[]).map(p=>`<option value="${p.id}">${esc(p.full_name||p.email||p.id)}</option>`).join(''))}
@@ -229,6 +252,23 @@ function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&l
 $('saveSetup').onclick=()=>{localStorage.setItem('uniky_sb_url',$('sbUrl').value.trim());localStorage.setItem('uniky_sb_key',$('sbKey').value.trim());location.reload()};
 $('changeConnection').onclick=()=>{localStorage.removeItem('uniky_sb_url');localStorage.removeItem('uniky_sb_key');location.reload()};
 $('loginBtn').onclick=async()=>{const {data,error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)return toast(error.message);await enter(data.user)};
+$('forgotBtn').onclick=async()=>{
+  const email=$('email').value.trim();
+  if(!email)return toast('Digite seu e-mail primeiro.');
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  toast(error?error.message:'E-mail de recuperação enviado.');
+};
+$('savePasswordBtn').onclick=async()=>{
+  const p=$('newPassword').value,c=$('confirmPassword').value;
+  if(p.length<6)return toast('A senha precisa ter pelo menos 6 caracteres.');
+  if(p!==c)return toast('As senhas não coincidem.');
+  const {error}=await sb.auth.updateUser({password:p});
+  if(error)return toast(error.message);
+  history.replaceState({},document.title,location.origin+location.pathname);
+  recoveryMode=false;
+  toast('Senha alterada com sucesso.');
+  setTimeout(()=>location.reload(),700);
+};
 $('signupBtn').onclick=async()=>{const {error}=await sb.auth.signUp({email:$('email').value,password:$('password').value});toast(error?error.message:'Acesso criado. Verifique o e-mail se a confirmação estiver ativa.')};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
 $('newOpBtn').onclick=()=>openOp(null);$('closeEditor').onclick=()=>{$('editor').classList.add('hidden');loadOps()};$('opForm').onsubmit=saveOp;$('statusFilter').onchange=loadOps;
