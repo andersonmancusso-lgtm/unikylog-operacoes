@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1f3a" />
+  <title>UnikyLog Operações</title>
+  <style>
+:root{--navy:#0b1f3a;--blue:#164e87;--bg:#f4f7fb;--line:#d8e0ea;--text:#122033;--muted:#657386;--danger:#b42318;--success:#137a46}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text)}
+.topbar{position:sticky;top:0;z-index:8;display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:white;padding:14px 16px}.brand{font-size:24px;font-weight:800}.subtitle{font-size:12px;opacity:.85}.container{max-width:900px;margin:auto;padding:14px}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 4px 18px rgba(12,32,60,.05)}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;margin:10px 0}input,textarea,select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:11px;font:inherit;background:#fff}textarea{min-height:84px;resize:vertical}button{border:0;border-radius:11px;padding:11px 14px;background:var(--blue);color:#fff;font-weight:750}.secondary{background:#52647a}.danger{background:var(--danger)}.success{background:var(--success)}.ghost{background:transparent;border:1px solid rgba(255,255,255,.35)}.small{padding:8px 10px}.linkbtn{background:transparent;color:var(--blue);padding-left:0}.hidden{display:none!important}.row{display:flex;gap:10px;align-items:center}.wrap{flex-wrap:wrap}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.toolbar{display:flex;gap:10px;justify-content:space-between;margin:12px 0}.toolbar select{max-width:240px}.list{display:grid;gap:10px}.opcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}.opcard h3{margin:0 0 6px}.meta{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#eef3f8;color:#30445f}.userbar{display:flex;justify-content:space-between;align-items:center}.muted{color:var(--muted);font-size:13px}.tabs{display:flex;gap:8px;margin-bottom:12px;overflow:auto}.tabs button{background:#e6edf5;color:#20364f;white-space:nowrap}.tabs button.active{background:var(--navy);color:#fff}.modal{position:fixed;inset:0;background:rgba(4,15,30,.55);z-index:20;overflow:auto;padding:0}.modalbox{background:var(--bg);min-height:100vh;max-width:900px;margin:auto;padding:14px}.modalhead{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--navy);color:#fff;margin:-14px -14px 14px;padding:12px 14px;z-index:2}fieldset{border:1px solid var(--line);border-radius:14px;background:#fff;margin:0 0 14px;padding:14px}legend{font-weight:800;color:var(--navy)}.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}.checks label{display:flex;flex-direction:row;align-items:center;font-weight:600}.checks input{width:auto}.inner{margin-top:10px}.messages{display:grid;gap:8px;margin:8px 0 12px}.msg{padding:9px 11px;border-radius:12px;background:#eef3f8}.msg.mine{background:#dfeeff}.msg small{display:block;color:var(--muted);margin-top:3px}.files{display:grid;gap:6px}.fileitem{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fafcff;font-size:13px}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0d1f34;color:white;padding:11px 16px;border-radius:12px;z-index:99;max-width:88vw}.adminOnly{}
+@media(max-width:650px){.grid2,.checks{grid-template-columns:1fr}.toolbar{align-items:stretch;flex-direction:column}.toolbar select{max-width:none}.row{align-items:stretch}.row input{flex:1}.topbar{padding-top:calc(12px + env(safe-area-inset-top))}}
+
+.attachmentPreview{display:block;width:100%;max-height:360px;object-fit:contain;border-radius:10px;background:#eef3f8;margin-bottom:8px;cursor:pointer}.fileinfo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.filename{font-weight:700;word-break:break-word}.openfile{display:inline-block;padding:9px 12px;border-radius:9px;background:var(--blue);color:#fff;text-decoration:none;font-weight:750}.fileerror{color:var(--danger);font-size:12px;margin-top:4px}.fileitem.pending{border-style:dashed}
+
+@media print{
+  body{background:#fff!important}.topbar,.userbar,.tabs,.toolbar,#opsList,#tab-messages,#tab-profile,.modalhead button,.actionButtons,.messageCard,.toast,input[type=file],.noPrint{display:none!important}
+  .container{max-width:none;padding:0}.card,fieldset{box-shadow:none!important;border:1px solid #bbb!important}.modal{position:static!important;background:#fff!important;overflow:visible!important}.modalbox{min-height:0!important;max-width:none!important;padding:0!important;background:#fff!important}.modalhead{position:static!important;background:#fff!important;color:#000!important;margin:0 0 12px!important;padding:0!important}.attachmentPreview{max-height:240px;page-break-inside:avoid}.fileitem{page-break-inside:avoid}button{display:none!important}input,textarea,select{border:0!important;padding:2px!important;background:#fff!important;color:#000!important;appearance:none!important;-webkit-appearance:none!important}legend{color:#000!important}label{break-inside:avoid}.printOnly{display:block!important}.hidden.printOnly{display:block!important}
+}
+
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">UnikyLog</div>
+      <div class="subtitle">Operações • Soluções Logísticas</div>
+    </div>
+    <button id="installBtn" class="ghost hidden">Instalar</button>
+  </header>
+
+  <main class="container">
+    <section id="setupView" class="card hidden">
+      <h2>Conectar ao banco online</h2>
+      <p>Informe os dados do seu projeto Supabase. Eles ficam salvos apenas neste aparelho.</p>
+      <label>Supabase URL<input id="sbUrl" placeholder="https://xxxx.supabase.co" /></label>
+      <label>Anon key<input id="sbKey" type="password" placeholder="eyJ..." /></label>
+      <button id="saveSetup">Salvar conexão</button>
+      <details><summary>Onde encontro?</summary><p>No Supabase: Project Settings → API → Project URL e anon/public key.</p></details>
+    </section>
+
+    <section id="authView" class="card">
+      <h2>Acesso</h2>
+      <p class="muted">Entre com o e-mail e a senha já cadastrados no sistema.</p>
+      <label>E-mail<input id="email" type="email" autocomplete="email" /></label>
+      <label>Senha<input id="password" type="password" autocomplete="current-password" /></label>
+      <div class="row">
+        <button id="loginBtn">Entrar</button>
+        <button id="signupBtn" class="secondary">Criar acesso</button>
+      </div>
+      <button id="changeConnection" class="linkbtn">Alterar conexão</button>
+    </section>
+
+    <section id="appView" class="hidden">
+      <div class="card userbar">
+        <div><strong id="who"></strong><div id="roleText" class="muted"></div></div>
+        <button id="logoutBtn" class="danger small">Sair</button>
+      </div>
+
+      <nav class="tabs">
+        <button data-tab="ops" class="active">Operações</button>
+        <button data-tab="messages">Mensagens</button>
+        <button data-tab="profile">Perfil</button>
+      </nav>
+
+      <section id="tab-ops">
+        <div class="toolbar">
+          <select id="statusFilter">
+            <option value="">Todos os status</option>
+            <option>Pendente</option><option>Em andamento</option><option>Aguardando assinatura</option><option>Concluída</option>
+          </select>
+          <button id="newOpBtn" class="adminOnly">+ Nova operação</button>
+        </div>
+        <div id="opsList" class="list"></div>
+      </section>
+
+      <section id="tab-messages" class="hidden">
+        <div class="card"><h3>Mensagens recentes</h3><div id="allMessages"></div></div>
+      </section>
+
+      <section id="tab-profile" class="hidden">
+        <div class="card">
+          <h3>Meu perfil</h3>
+          <label>Nome<input id="profileName" /></label>
+          <label>Telefone<input id="profilePhone" /></label>
+          <button id="saveProfile">Salvar perfil</button>
+        </div>
+      </section>
+
+      <section id="editor" class="modal hidden">
+        <div class="modalbox">
+          <div class="modalhead"><h2 id="editorTitle">Operação</h2><button id="closeEditor" class="ghost">✕</button></div>
+          <form id="opForm">
+            <input type="hidden" id="opId" />
+            <fieldset>
+              <legend>1. Dados da Ordem de Serviço</legend>
+              <div class="grid2">
+                <label>Nº da OS *<input id="osNumber" required /></label>
+                <label>Serviço *<input id="service" required value="Material de Peação" /></label>
+                <label>Cliente<input id="client" /></label>
+                <label>Embarcador<input id="shipper" /></label>
+                <label>Booking<input id="booking" /></label>
+                <label>Agendamento<input id="appointment" /></label>
+                <label>Data programada<input id="scheduledDate" type="date" /></label>
+                <label>Hora programada<input id="scheduledTime" type="time" /></label>
+                <label>Navio / Viagem<input id="vessel" /></label>
+                <label>Destino final<input id="destination" /></label>
+                <label>Container<input id="containerNo" /></label>
+                <label>Tipo / CTR<input id="containerType" /></label>
+                <label>Tara<input id="tare" /></label>
+                <label>Peso da carga<input id="cargoWeight" /></label>
+                <label>Lacre<input id="seal" /></label>
+                <label>Doca<input id="dock" /></label>
+              </div>
+              <label>Local da coleta / endereço<textarea id="pickup"></textarea></label>
+              <label>Observações da OS<textarea id="osNotes"></textarea></label>
+              <label class="adminOnly">Funcionário responsável<select id="assignedTo"></select></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>2. Registro da Operação</legend>
+              <div class="grid2">
+                <label>Chegada no cliente<input id="arrival" type="datetime-local" /></label>
+                <label>Início<input id="startAt" type="datetime-local" /></label>
+                <label>Término<input id="endAt" type="datetime-local" /></label>
+                <label>Saída do cliente<input id="departure" type="datetime-local" /></label>
+                <label>NF<input id="invoice" /></label>
+                <label>Código(s)<input id="codes" /></label>
+                <label>Produto(s)<input id="products" /></label>
+                <label>Quantidade(s)<input id="quantities" /></label>
+              </div>
+              <div class="checks">
+                <label><input id="cobra" type="checkbox" /> Uso de cobra para peação</label>
+                <label><input id="palletized" type="checkbox" /> Paletizado</label>
+                <label><input id="loose" type="checkbox" /> Batido</label>
+                <label><input id="containerChecked" type="checkbox" /> Estado geral do container conferido</label>
+                <label><input id="sealChecked" type="checkbox" /> Numeração do lacre conferida</label>
+                <label><input id="cargoOk" type="checkbox" /> Mercadoria sem avarias aparentes</label>
+              </div>
+              <label>Ocorrências / divergências<textarea id="issues"></textarea></label>
+              <label>Observações finais<textarea id="finalNotes"></textarea></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>3. Fotos e documentos</legend>
+              <label>Fotos da operação — pode selecionar várias<input id="photos" type="file" accept="image/*" multiple /></label>
+              <div id="photoList" class="files"></div>
+              <label>OS original / relatório assinado<input id="documents" type="file" accept="image/*,application/pdf" multiple /></label>
+              <div id="docList" class="files"></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>4. Assinatura / identificação</legend>
+              <div class="grid2">
+                <label>Nome do cliente / recebedor<input id="receiverName" /></label>
+                <label>Carimbo / identificação<input id="receiverId" /></label>
+              </div>
+              <p class="muted">A assinatura digital desenhada pode ser adicionada em uma próxima atualização. Nesta versão, anexe o relatório/OS assinado em Fotos e documentos.</p>
+            </fieldset>
+
+            <fieldset>
+              <legend>5. Status e finalização</legend>
+              <label>Status<select id="status"><option>Pendente</option><option>Em andamento</option><option>Aguardando assinatura</option><option>Concluída</option></select></label>
+              <div class="row wrap actionButtons">
+                <button type="submit">Salvar operação</button>
+                <button type="button" id="startNow" class="secondary">Iniciar agora</button>
+                <button type="button" id="completeBtn" class="success">Concluir</button>
+                <button type="button" id="printBtn" class="secondary">Imprimir</button>
+                <button type="button" id="deleteBtn" class="danger adminOnly">Excluir operação</button>
+              </div>
+            </fieldset>
+          </form>
+
+          <div class="card inner messageCard">
+            <h3>Mensagens desta operação</h3>
+            <div id="messagesList" class="messages"></div>
+            <div class="row"><input id="messageInput" placeholder="Escreva uma mensagem..." /><button id="sendMessage" type="button">Enviar</button></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+  <script>
+let sb=null, me=null, profile=null, deferredPrompt=null;
+const $=id=>document.getElementById(id);
+const DEFAULT_SB_URL='https://psdyvqqgbjclgoyzipoi.supabase.co';
+const DEFAULT_SB_KEY='sb_publishable_PEAXy-SMpDXSfVO7fYL1Aw_43N8z-5r';
+const cfg=()=>({url:localStorage.getItem('uniky_sb_url')||DEFAULT_SB_URL,key:localStorage.getItem('uniky_sb_key')||DEFAULT_SB_KEY});
+function toast(s){$('toast').textContent=s;$('toast').classList.remove('hidden');setTimeout(()=>$('toast').classList.add('hidden'),2600)}
+function show(id){['setupView','authView','appView'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
+async function init(){const c=cfg();if(!c.url||!c.key){show('setupView');return}sb=supabase.createClient(c.url,c.key);const {data:{session}}=await sb.auth.getSession();if(!session){show('authView');return}await enter(session.user)}
+async function enter(user){me=user;show('appView');await loadProfile();await loadEmployees();await loadOps();await loadAllMessages();subscribeRealtime()}
+async function loadProfile(){const {data,error}=await sb.from('profiles').select('*').eq('id',me.id).single();if(error){toast('Perfil ainda não disponível');return}profile=data;$('who').textContent=profile.full_name||me.email;$('roleText').textContent=profile.role==='admin'?'Administrador':'Funcionário';$('profileName').value=profile.full_name||'';$('profilePhone').value=profile.phone||'';document.querySelectorAll('.adminOnly').forEach(el=>el.classList.toggle('hidden',profile.role!=='admin'))}
+async function loadEmployees(){if(!profile||profile.role!=='admin')return;const {data}=await sb.from('profiles').select('id,full_name,email').order('full_name');$('assignedTo').innerHTML='<option value="">Não atribuído</option>'+((data||[]).map(p=>`<option value="${p.id}">${esc(p.full_name||p.email||p.id)}</option>`).join(''))}
+async function loadOps(){if(!profile)return;let q=sb.from('operations').select('*,profiles!operations_assigned_to_fkey(full_name,email)').order('created_at',{ascending:false});const f=$('statusFilter').value;if(f)q=q.eq('status',f);const {data,error}=await q;if(error){toast(error.message);return}const list=$('opsList');list.innerHTML='';(data||[]).forEach(o=>{const d=document.createElement('div');d.className='opcard';d.innerHTML=`<h3>OS ${esc(o.os_number)}</h3><div>${esc(o.client||o.shipper||'Sem cliente')}</div><div class="meta"><span class="badge">${esc(o.status)}</span><span>${esc(o.service||'')}</span><span>${esc(o.profiles?.full_name||o.profiles?.email||'Não atribuído')}</span></div>`;d.onclick=()=>openOp(o.id);list.appendChild(d)});if(!(data||[]).length)list.innerHTML='<div class="card muted">Nenhuma operação encontrada.</div>'}
+async function openOp(id){resetForm();$('editor').classList.remove('hidden');if(!id){$('editorTitle').textContent='Nova operação';return}const {data,error}=await sb.from('operations').select('*').eq('id',id).single();if(error){toast(error.message);return}$('editorTitle').textContent='OS '+data.os_number;Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;if(el.type==='checkbox')el.checked=!!data[k];else el.value=data[k]??''});$('opId').value=data.id;await loadAttachments(data.id);await loadMessages(data.id)}
+function resetForm(){$('opForm').reset();$('opId').value='';$('photoList').innerHTML='';$('docList').innerHTML='';$('messagesList').innerHTML=''}
+const fieldMap={os_number:'osNumber',service:'service',client:'client',shipper:'shipper',booking:'booking',appointment:'appointment',scheduled_date:'scheduledDate',scheduled_time:'scheduledTime',vessel_voyage:'vessel',destination:'destination',container_no:'containerNo',container_type:'containerType',tare:'tare',cargo_weight:'cargoWeight',seal:'seal',dock:'dock',pickup_address:'pickup',os_notes:'osNotes',assigned_to:'assignedTo',arrival_at:'arrival',start_at:'startAt',end_at:'endAt',departure_at:'departure',invoice:'invoice',codes:'codes',products:'products',quantities:'quantities',uses_cobra:'cobra',palletized:'palletized',loose_loaded:'loose',container_checked:'containerChecked',seal_checked:'sealChecked',cargo_no_apparent_damage:'cargoOk',issues:'issues',final_notes:'finalNotes',receiver_name:'receiverName',receiver_identification:'receiverId',status:'status'};
+function payload(){const p={};Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;p[k]=el.type==='checkbox'?el.checked:(el.value||null)});p.updated_at=new Date().toISOString();if(!$('opId').value)p.created_by=me.id;return p}
+async function saveOp(ev){ev?.preventDefault();const p=payload();if(!p.os_number||!p.service){toast('Preencha Nº da OS e Serviço');return}let id=$('opId').value;let res=id?await sb.from('operations').update(p).eq('id',id).select().single():await sb.from('operations').insert(p).select().single();if(res.error){toast(res.error.message);return}id=res.data.id;$('opId').value=id;try{await uploadFiles(id,'photos','operation-photos',$('photos').files);await uploadFiles(id,'documents','operation-documents',$('documents').files);$('photos').value='';$('documents').value='';toast('Operação salva com sucesso')}catch(err){toast('Operação salva, mas o anexo falhou: '+(err?.message||err))}await loadAttachments(id);await loadOps()}
+async function uploadFiles(opId,table,bucket,fileList){for(const file of Array.from(fileList||[])){const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`${opId}/${crypto.randomUUID()}-${safe}`;const up=await sb.storage.from(bucket).upload(path,file,{contentType:file.type||undefined,upsert:false});if(up.error)throw new Error(up.error.message);const meta=await sb.from(table).insert({operation_id:opId,storage_path:path,file_name:file.name,uploaded_by:me.id});if(meta.error){await sb.storage.from(bucket).remove([path]);throw new Error(meta.error.message)}}}
+function isImageFile(name){return /\.(png|jpe?g|gif|webp|heic|heif)$/i.test(name||'')}
+async function loadAttachments(id){for(const [table,bucket,target,isPhoto] of [['photos','operation-photos','photoList',true],['documents','operation-documents','docList',false]]){const q=await sb.from(table).select('*').eq('operation_id',id).order('created_at');const box=$(target);box.innerHTML='';if(q.error){box.innerHTML=`<div class="fileerror">Erro ao carregar anexos: ${esc(q.error.message)}</div>`;continue}for(const x of q.data||[]){const signed=await sb.storage.from(bucket).createSignedUrl(x.storage_path,3600);const d=document.createElement('div');d.className='fileitem';if(signed.error||!signed.data?.signedUrl){d.innerHTML=`<div><strong>${esc(x.file_name)}</strong></div><div class="fileerror">Não foi possível abrir este anexo.</div>`;box.appendChild(d);continue}const url=signed.data.signedUrl;const showPreview=isPhoto||isImageFile(x.file_name);if(showPreview){const img=document.createElement('img');img.className='attachmentPreview';img.src=url;img.alt=x.file_name;img.loading='lazy';img.onclick=()=>window.open(url,'_blank','noopener');d.appendChild(img)}const info=document.createElement('div');info.className='fileinfo';const name=document.createElement('div');name.className='filename';name.textContent=x.file_name;const open=document.createElement('a');open.className='openfile';open.href=url;open.target='_blank';open.rel='noopener';open.textContent=showPreview?'Abrir foto':'Abrir documento';info.appendChild(name);info.appendChild(open);d.appendChild(info);box.appendChild(d)}if(!(q.data||[]).length)box.innerHTML='<div class="muted">Nenhum anexo salvo ainda.</div>'}}
+function previewSelectedFiles(inputId,targetId){const input=$(inputId),box=$(targetId);if(!input)return;input.addEventListener('change',()=>{const files=Array.from(input.files||[]);if(!files.length)return;box.innerHTML='';for(const file of files){const d=document.createElement('div');d.className='fileitem pending';if(file.type?.startsWith('image/')){const img=document.createElement('img');img.className='attachmentPreview';img.src=URL.createObjectURL(file);img.alt=file.name;d.appendChild(img)}const info=document.createElement('div');info.className='fileinfo';info.innerHTML=`<div class="filename">${esc(file.name)}</div><div class="muted">Selecionado — toque em Salvar operação para enviar.</div>`;d.appendChild(info);box.appendChild(d)}})}
+function printOperation(){if(!$('opId').value)return toast('Salve a operação antes de imprimir.');window.print()}
+async function deleteOperation(){
+  const id=$('opId').value;if(!id)return toast('Nenhuma operação salva para excluir.');
+  if(!profile||profile.role!=='admin')return toast('Somente administrador pode excluir operação.');
+  if(!confirm('Excluir esta operação definitivamente? Esta ação não pode ser desfeita.'))return;
+  try{
+    const [ph,dc]=await Promise.all([sb.from('photos').select('storage_path').eq('operation_id',id),sb.from('documents').select('storage_path').eq('operation_id',id)]);
+    if(ph.error)throw ph.error;if(dc.error)throw dc.error;
+    if((ph.data||[]).length){const r=await sb.storage.from('operation-photos').remove(ph.data.map(x=>x.storage_path));if(r.error)throw r.error}
+    if((dc.data||[]).length){const r=await sb.storage.from('operation-documents').remove(dc.data.map(x=>x.storage_path));if(r.error)throw r.error}
+    for(const t of ['photos','documents','operation_messages','operation_members']){const r=await sb.from(t).delete().eq('operation_id',id);if(r.error && !/does not exist/i.test(r.error.message||''))throw r.error}
+    const r=await sb.from('operations').delete().eq('id',id);if(r.error)throw r.error;
+    $('editor').classList.add('hidden');toast('Operação excluída.');await loadOps();
+  }catch(err){toast('Não foi possível excluir: '+(err?.message||err))}
+}
+async function loadMessages(id){const {data}=await sb.from('operation_messages').select('*,profiles(full_name,email)').eq('operation_id',id).order('created_at');const box=$('messagesList');box.innerHTML='';(data||[]).forEach(m=>{const d=document.createElement('div');d.className='msg '+(m.sender_id===me.id?'mine':'');d.innerHTML=`${esc(m.message)}<small>${esc(m.profiles?.full_name||m.profiles?.email||'Usuário')} • ${new Date(m.created_at).toLocaleString('pt-BR')}</small>`;box.appendChild(d)})}
+async function sendMessage(){const id=$('opId').value,msg=$('messageInput').value.trim();if(!id||!msg)return;const {error}=await sb.from('operation_messages').insert({operation_id:id,sender_id:me.id,message:msg});if(error){toast(error.message);return}$('messageInput').value='';await loadMessages(id);await loadAllMessages()}
+async function loadAllMessages(){if(!profile)return;const {data}=await sb.from('operation_messages').select('*,operations(os_number),profiles(full_name,email)').order('created_at',{ascending:false}).limit(30);$('allMessages').innerHTML=(data||[]).map(m=>`<div class="msg"><b>OS ${esc(m.operations?.os_number||'')}</b> — ${esc(m.message)}<small>${esc(m.profiles?.full_name||m.profiles?.email||'')} • ${new Date(m.created_at).toLocaleString('pt-BR')}</small></div>`).join('')||'<div class="muted">Sem mensagens.</div>'}
+function subscribeRealtime(){sb.channel('uniky-realtime').on('postgres_changes',{event:'*',schema:'public',table:'operations'},()=>loadOps()).on('postgres_changes',{event:'INSERT',schema:'public',table:'operation_messages'},()=>{const id=$('opId').value;if(id)loadMessages(id);loadAllMessages()}).subscribe()}
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+
+$('saveSetup').onclick=()=>{localStorage.setItem('uniky_sb_url',$('sbUrl').value.trim());localStorage.setItem('uniky_sb_key',$('sbKey').value.trim());location.reload()};
+$('changeConnection').onclick=()=>{localStorage.removeItem('uniky_sb_url');localStorage.removeItem('uniky_sb_key');location.reload()};
+$('loginBtn').onclick=async()=>{const {data,error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)return toast(error.message);await enter(data.user)};
+$('signupBtn').onclick=async()=>{const {error}=await sb.auth.signUp({email:$('email').value,password:$('password').value});toast(error?error.message:'Acesso criado. Verifique o e-mail se a confirmação estiver ativa.')};
+$('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
+$('newOpBtn').onclick=()=>openOp(null);$('closeEditor').onclick=()=>{$('editor').classList.add('hidden');loadOps()};$('opForm').onsubmit=saveOp;$('statusFilter').onchange=loadOps;
+$('startNow').onclick=()=>{$('startAt').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$('status').value='Em andamento';toast('Início registrado. Toque em Salvar operação.')};
+$('completeBtn').onclick=async()=>{if(!$('opId').value)return toast('Salve a operação primeiro');const {data:docs}=await sb.from('documents').select('id').eq('operation_id',$('opId').value).limit(1);const {data:photos}=await sb.from('photos').select('id').eq('operation_id',$('opId').value).limit(1);if(!(docs||[]).length||!(photos||[]).length)return toast('Para concluir, anexe pelo menos 1 foto e 1 documento assinado.');$('status').value='Concluída';$('endAt').value=$('endAt').value||new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);await saveOp()};
+$('printBtn').onclick=printOperation;
+$('deleteBtn').onclick=deleteOperation;
+$('sendMessage').onclick=sendMessage;
+$('saveProfile').onclick=async()=>{const {error}=await sb.from('profiles').update({full_name:$('profileName').value,phone:$('profilePhone').value}).eq('id',me.id);if(error)return toast(error.message);toast('Perfil salvo');await loadProfile()};
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['ops','messages','profile'].forEach(t=>$('tab-'+t).classList.toggle('hidden',t!==b.dataset.tab))});
+previewSelectedFiles('photos','photoList');previewSelectedFiles('documents','docList');
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').classList.remove('hidden')});$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt=null};
+init();
+
+  </script>
+</body>
+</html>
