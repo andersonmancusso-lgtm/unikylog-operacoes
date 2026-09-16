@@ -17,9 +17,12 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
 
 .opsToolbar{align-items:center}.osSearchBox{display:flex;gap:8px;flex:1;max-width:520px}.osSearchBox input{margin:0;min-width:0}.searchBtn{width:52px;min-width:52px;font-size:20px;padding:10px;display:flex;align-items:center;justify-content:center}.opcard{cursor:pointer;min-height:64px;display:flex;align-items:center}.opcard h3{margin:0;font-size:20px;word-break:break-word}.opcard:active{transform:scale(.995)}
 
+
+.signatureBox{margin-top:12px}.signatureCanvas{display:block;width:100%;height:180px;border:2px solid #cbd5e1;border-radius:12px;background:#fff;touch-action:none;cursor:crosshair}.signatureControls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.signatureHelp{margin:8px 0 0}.savedSignatureWrap{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fafcff}.savedSignatureLabel{font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px}.savedSignature{display:block;max-width:100%;max-height:180px;object-fit:contain;background:#fff;border-radius:8px}
+
 @media print{
   body{background:#fff!important}.topbar,.userbar,.tabs,.toolbar,#opsList,#tab-messages,#tab-profile,.modalhead button,.actionButtons,.messageCard,.toast,input[type=file],.noPrint{display:none!important}
-  .container{max-width:none;padding:0}.card,fieldset{box-shadow:none!important;border:1px solid #bbb!important}.modal{position:static!important;background:#fff!important;overflow:visible!important}.modalbox{min-height:0!important;max-width:none!important;padding:0!important;background:#fff!important}.modalhead{position:static!important;background:#fff!important;color:#000!important;margin:0 0 12px!important;padding:0!important}.attachmentPreview{max-height:240px;page-break-inside:avoid}.fileitem{page-break-inside:avoid}button{display:none!important}input,textarea,select{border:0!important;padding:2px!important;background:#fff!important;color:#000!important;appearance:none!important;-webkit-appearance:none!important}legend{color:#000!important}label{break-inside:avoid}.printOnly{display:block!important}.hidden.printOnly{display:block!important}
+  .container{max-width:none;padding:0}.card,fieldset{box-shadow:none!important;border:1px solid #bbb!important}.modal{position:static!important;background:#fff!important;overflow:visible!important}.modalbox{min-height:0!important;max-width:none!important;padding:0!important;background:#fff!important}.modalhead{position:static!important;background:#fff!important;color:#000!important;margin:0 0 12px!important;padding:0!important}.attachmentPreview{max-height:240px;page-break-inside:avoid}.fileitem{page-break-inside:avoid}button{display:none!important}input,textarea,select{border:0!important;padding:2px!important;background:#fff!important;color:#000!important;appearance:none!important;-webkit-appearance:none!important}legend{color:#000!important}label{break-inside:avoid}.printOnly{display:block!important}.hidden.printOnly{display:block!important}#signatureCanvas,.signatureControls,.signatureHelp{display:none!important}.savedSignatureWrap{border:0!important;padding:0!important;background:#fff!important}
 }
 
   </style>
@@ -177,7 +180,19 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
                 <label>Nome do cliente / recebedor<input id="receiverName" /></label>
                 <label>Carimbo / identificação<input id="receiverId" /></label>
               </div>
-              <p class="muted">A assinatura digital desenhada pode ser adicionada em uma próxima atualização. Nesta versão, anexe o relatório/OS assinado em Fotos e documentos.</p>
+              <div class="signatureBox">
+                <div><strong>Assinatura do cliente / recebedor</strong></div>
+                <p class="muted signatureHelp">Assine com o dedo dentro do quadro abaixo.</p>
+                <canvas id="signatureCanvas" class="signatureCanvas" width="1000" height="280" aria-label="Área para assinatura"></canvas>
+                <div class="signatureControls noPrint">
+                  <button type="button" id="clearSignature" class="secondary">Limpar assinatura</button>
+                </div>
+                <div id="savedSignatureWrap" class="savedSignatureWrap hidden">
+                  <div class="savedSignatureLabel">Assinatura salva</div>
+                  <img id="savedSignature" class="savedSignature" alt="Assinatura do cliente / recebedor" />
+                </div>
+                <p class="muted signatureHelp">Para substituir uma assinatura já salva, assine novamente e toque em <strong>Salvar operação</strong>.</p>
+              </div>
             </fieldset>
 
             <fieldset>
@@ -230,8 +245,8 @@ async function enter(user){me=user;show('appView');await loadProfile();await loa
 async function loadProfile(){const {data,error}=await sb.from('profiles').select('*').eq('id',me.id).single();if(error){toast('Perfil ainda não disponível');return}profile=data;$('who').textContent=profile.full_name||me.email;$('roleText').textContent=profile.role==='admin'?'Administrador':'Funcionário';$('profileName').value=profile.full_name||'';$('profilePhone').value=profile.phone||'';document.querySelectorAll('.adminOnly').forEach(el=>el.classList.toggle('hidden',profile.role!=='admin'))}
 async function loadEmployees(){if(!profile||profile.role!=='admin')return;const {data}=await sb.from('profiles').select('id,full_name,email').order('full_name');$('assignedTo').innerHTML='<option value="">Não atribuído</option>'+((data||[]).map(p=>`<option value="${p.id}">${esc(p.full_name||p.email||p.id)}</option>`).join(''))}
 async function loadOps(){if(!profile)return;let q=sb.from('operations').select('id,os_number,created_at').order('created_at',{ascending:false});const term=($('osSearch')?.value||'').trim();if(term)q=q.ilike('os_number',`%${term}%`);const {data,error}=await q;if(error){toast(error.message);return}const list=$('opsList');list.innerHTML='';(data||[]).forEach(o=>{const d=document.createElement('div');d.className='opcard';d.innerHTML=`<h3>OS ${esc(o.os_number)}</h3>`;d.onclick=()=>openOp(o.id);list.appendChild(d)});if(!(data||[]).length)list.innerHTML='<div class="card muted">Nenhuma OS encontrada.</div>'}
-async function openOp(id){resetForm();$('editor').classList.remove('hidden');if(!id){$('editorTitle').textContent='Nova operação';return}const {data,error}=await sb.from('operations').select('*').eq('id',id).single();if(error){toast(error.message);return}$('editorTitle').textContent='OS '+data.os_number;Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;if(el.type==='checkbox')el.checked=!!data[k];else el.value=data[k]??''});$('opId').value=data.id;await loadAttachments(data.id);await loadMessages(data.id)}
-function resetForm(){$('opForm').reset();$('opId').value='';$('photoList').innerHTML='';$('docList').innerHTML='';$('messagesList').innerHTML=''}
+async function openOp(id){resetForm();$('editor').classList.remove('hidden');if(!id){$('editorTitle').textContent='Nova operação';return}const {data,error}=await sb.from('operations').select('*').eq('id',id).single();if(error){toast(error.message);return}$('editorTitle').textContent='OS '+data.os_number;Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;if(el.type==='checkbox')el.checked=!!data[k];else el.value=data[k]??''});$('opId').value=data.id;await loadAttachments(data.id);await loadSignature(data.id);await loadMessages(data.id)}
+function resetForm(){$('opForm').reset();$('opId').value='';$('photoList').innerHTML='';$('docList').innerHTML='';$('messagesList').innerHTML='';hideSavedSignature();clearSignatureCanvas(false)}
 
 function cleanText(v){return (v||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').replace(/\r/g,'').trim()}
 function normText(v){return cleanText(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()}
@@ -376,12 +391,74 @@ async function importOsFile(){
     if(n)toast(`${n} campos preenchidos pela OS`);
   }catch(err){status.className='importStatus err';status.textContent='Não foi possível preencher automaticamente: '+(err?.message||err)}
 }
+let signatureDrawing=false,signatureHasInk=false,signatureDirty=false;
+function signatureContext(){const c=$('signatureCanvas');return c?c.getContext('2d'):null}
+function clearSignatureCanvas(markDirty=false){
+  const c=$('signatureCanvas'),ctx=signatureContext();if(!c||!ctx)return;
+  ctx.save();ctx.fillStyle='#ffffff';ctx.fillRect(0,0,c.width,c.height);ctx.restore();
+  signatureDrawing=false;signatureHasInk=false;signatureDirty=!!markDirty;
+}
+function hideSavedSignature(){const w=$('savedSignatureWrap'),img=$('savedSignature');if(w)w.classList.add('hidden');if(img)img.removeAttribute('src')}
+function signaturePoint(ev){const c=$('signatureCanvas'),r=c.getBoundingClientRect();return{x:(ev.clientX-r.left)*(c.width/r.width),y:(ev.clientY-r.top)*(c.height/r.height)}}
+function beginSignature(ev){const c=$('signatureCanvas'),ctx=signatureContext();if(!c||!ctx)return;ev.preventDefault();signatureDrawing=true;signatureHasInk=true;signatureDirty=true;try{c.setPointerCapture(ev.pointerId)}catch(_){ }const p=signaturePoint(ev);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+.01,p.y+.01);ctx.strokeStyle='#111827';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke()}
+function moveSignature(ev){if(!signatureDrawing)return;ev.preventDefault();const ctx=signatureContext(),p=signaturePoint(ev);ctx.lineTo(p.x,p.y);ctx.strokeStyle='#111827';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke()}
+function endSignature(ev){if(!signatureDrawing)return;ev?.preventDefault?.();signatureDrawing=false}
+function canvasBlob(canvas,type='image/png'){return new Promise(resolve=>canvas.toBlob(resolve,type,0.95))}
+async function saveDigitalSignature(opId){
+  if(!signatureDirty||!signatureHasInk)return false;
+  const c=$('signatureCanvas'),blob=await canvasBlob(c);if(!blob)throw new Error('Não foi possível gerar a assinatura.');
+  const file=new File([blob],`assinatura-cliente-${Date.now()}.png`,{type:'image/png'});
+  await uploadFiles(opId,'photos','operation-photos',[file]);
+  signatureDirty=false;signatureHasInk=false;clearSignatureCanvas(false);await loadSignature(opId);return true;
+}
+async function loadSignature(opId){
+  hideSavedSignature();if(!opId)return;
+  const q=await sb.from('photos').select('storage_path,file_name,created_at').eq('operation_id',opId).ilike('file_name','assinatura-cliente-%').order('created_at',{ascending:false}).limit(1);
+  if(q.error||!(q.data||[]).length)return;
+  const x=q.data[0],signed=await sb.storage.from('operation-photos').createSignedUrl(x.storage_path,3600);
+  if(signed.error||!signed.data?.signedUrl)return;
+  $('savedSignature').src=signed.data.signedUrl;$('savedSignatureWrap').classList.remove('hidden');
+}
+function setupSignaturePad(){
+  const c=$('signatureCanvas');if(!c)return;clearSignatureCanvas(false);
+  c.addEventListener('pointerdown',beginSignature,{passive:false});c.addEventListener('pointermove',moveSignature,{passive:false});c.addEventListener('pointerup',endSignature,{passive:false});c.addEventListener('pointercancel',endSignature,{passive:false});c.addEventListener('pointerleave',endSignature,{passive:false});
+  $('clearSignature').onclick=()=>{clearSignatureCanvas(true);toast('Assinatura limpa. Assine novamente antes de salvar.')};
+}
+async function hasSavedDigitalSignature(opId){const {data,error}=await sb.from('photos').select('id').eq('operation_id',opId).ilike('file_name','assinatura-cliente-%').limit(1);return !error&&(data||[]).length>0}
+
 const fieldMap={os_number:'osNumber',service:'service',client:'client',shipper:'shipper',booking:'booking',appointment:'appointment',scheduled_date:'scheduledDate',scheduled_time:'scheduledTime',vessel_voyage:'vessel',destination:'destination',container_no:'containerNo',container_type:'containerType',tare:'tare',cargo_weight:'cargoWeight',seal:'seal',dock:'dock',pickup_address:'pickup',os_notes:'osNotes',assigned_to:'assignedTo',arrival_at:'arrival',start_at:'startAt',end_at:'endAt',departure_at:'departure',invoice:'invoice',codes:'codes',products:'products',quantities:'quantities',uses_cobra:'cobra',palletized:'palletized',loose_loaded:'loose',container_checked:'containerChecked',seal_checked:'sealChecked',cargo_no_apparent_damage:'cargoOk',issues:'issues',final_notes:'finalNotes',receiver_name:'receiverName',receiver_identification:'receiverId',status:'status'};
 function payload(){const p={};Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;p[k]=el.type==='checkbox'?el.checked:(el.value||null)});p.updated_at=new Date().toISOString();if(!$('opId').value){p.created_by=me.id;if(profile?.role!=='admin')p.assigned_to=me.id}return p}
-async function saveOp(ev){ev?.preventDefault();const p=payload();if(!p.os_number||!p.service){toast('Preencha Nº da OS e Serviço');return}let id=$('opId').value;let res=id?await sb.from('operations').update(p).eq('id',id).select().single():await sb.from('operations').insert(p).select().single();if(res.error){toast(res.error.message);return}id=res.data.id;$('opId').value=id;try{await uploadFiles(id,'photos','operation-photos',$('photos').files);await uploadFiles(id,'documents','operation-documents',$('documents').files);$('photos').value='';$('documents').value='';toast('Operação salva com sucesso')}catch(err){toast('Operação salva, mas o anexo falhou: '+(err?.message||err))}await loadAttachments(id);await loadOps()}
+async function saveOp(ev){
+  ev?.preventDefault();const p=payload();if(!p.os_number||!p.service){toast('Preencha Nº da OS e Serviço');return}
+  let id=$('opId').value;let res=id?await sb.from('operations').update(p).eq('id',id).select().single():await sb.from('operations').insert(p).select().single();
+  if(res.error){toast(res.error.message);return}id=res.data.id;$('opId').value=id;
+  try{
+    await uploadFiles(id,'photos','operation-photos',$('photos').files);
+    await uploadFiles(id,'documents','operation-documents',$('documents').files);
+    await saveDigitalSignature(id);
+    $('photos').value='';$('documents').value='';toast('Operação salva com sucesso');
+  }catch(err){toast('Operação salva, mas um anexo/assinatura falhou: '+(err?.message||err))}
+  await loadAttachments(id);await loadSignature(id);await loadOps();
+}
 async function uploadFiles(opId,table,bucket,fileList){for(const file of Array.from(fileList||[])){const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`${opId}/${crypto.randomUUID()}-${safe}`;const up=await sb.storage.from(bucket).upload(path,file,{contentType:file.type||undefined,upsert:false});if(up.error)throw new Error(up.error.message);const meta=await sb.from(table).insert({operation_id:opId,storage_path:path,file_name:file.name,uploaded_by:me.id});if(meta.error){await sb.storage.from(bucket).remove([path]);throw new Error(meta.error.message)}}}
 function isImageFile(name){return /\.(png|jpe?g|gif|webp|heic|heif)$/i.test(name||'')}
-async function loadAttachments(id){for(const [table,bucket,target,isPhoto] of [['photos','operation-photos','photoList',true],['documents','operation-documents','docList',false]]){const q=await sb.from(table).select('*').eq('operation_id',id).order('created_at');const box=$(target);box.innerHTML='';if(q.error){box.innerHTML=`<div class="fileerror">Erro ao carregar anexos: ${esc(q.error.message)}</div>`;continue}for(const x of q.data||[]){const signed=await sb.storage.from(bucket).createSignedUrl(x.storage_path,3600);const d=document.createElement('div');d.className='fileitem';if(signed.error||!signed.data?.signedUrl){d.innerHTML=`<div><strong>${esc(x.file_name)}</strong></div><div class="fileerror">Não foi possível abrir este anexo.</div>`;box.appendChild(d);continue}const url=signed.data.signedUrl;const showPreview=isPhoto||isImageFile(x.file_name);if(showPreview){const img=document.createElement('img');img.className='attachmentPreview';img.src=url;img.alt=x.file_name;img.loading='lazy';img.onclick=()=>window.open(url,'_blank','noopener');d.appendChild(img)}const info=document.createElement('div');info.className='fileinfo';const name=document.createElement('div');name.className='filename';name.textContent=x.file_name;const open=document.createElement('a');open.className='openfile';open.href=url;open.target='_blank';open.rel='noopener';open.textContent=showPreview?'Abrir foto':'Abrir documento';info.appendChild(name);info.appendChild(open);d.appendChild(info);box.appendChild(d)}if(!(q.data||[]).length)box.innerHTML='<div class="muted">Nenhum anexo salvo ainda.</div>'}}
+async function loadAttachments(id){
+  for(const [table,bucket,target,isPhoto] of [['photos','operation-photos','photoList',true],['documents','operation-documents','docList',false]]){
+    const q=await sb.from(table).select('*').eq('operation_id',id).order('created_at');const box=$(target);box.innerHTML='';
+    if(q.error){box.innerHTML=`<div class="fileerror">Erro ao carregar anexos: ${esc(q.error.message)}</div>`;continue}
+    let shown=0;
+    for(const x of q.data||[]){
+      if(table==='photos'&&/^assinatura-cliente-/i.test(x.file_name||''))continue;
+      shown++;
+      const signed=await sb.storage.from(bucket).createSignedUrl(x.storage_path,3600);const d=document.createElement('div');d.className='fileitem';
+      if(signed.error||!signed.data?.signedUrl){d.innerHTML=`<div><strong>${esc(x.file_name)}</strong></div><div class="fileerror">Não foi possível abrir este anexo.</div>`;box.appendChild(d);continue}
+      const url=signed.data.signedUrl;const showPreview=isPhoto||isImageFile(x.file_name);
+      if(showPreview){const img=document.createElement('img');img.className='attachmentPreview';img.src=url;img.alt=x.file_name;img.loading='lazy';img.onclick=()=>window.open(url,'_blank','noopener');d.appendChild(img)}
+      const info=document.createElement('div');info.className='fileinfo';const name=document.createElement('div');name.className='filename';name.textContent=x.file_name;const open=document.createElement('a');open.className='openfile';open.href=url;open.target='_blank';open.rel='noopener';open.textContent=showPreview?'Abrir foto':'Abrir documento';info.appendChild(name);info.appendChild(open);d.appendChild(info);box.appendChild(d)
+    }
+    if(!shown)box.innerHTML='<div class="muted">Nenhum anexo salvo ainda.</div>'
+  }
+}
 function previewSelectedFiles(inputId,targetId){const input=$(inputId),box=$(targetId);if(!input)return;input.addEventListener('change',()=>{const files=Array.from(input.files||[]);if(!files.length)return;box.innerHTML='';for(const file of files){const d=document.createElement('div');d.className='fileitem pending';if(file.type?.startsWith('image/')){const img=document.createElement('img');img.className='attachmentPreview';img.src=URL.createObjectURL(file);img.alt=file.name;d.appendChild(img)}const info=document.createElement('div');info.className='fileinfo';info.innerHTML=`<div class="filename">${esc(file.name)}</div><div class="muted">Selecionado — toque em Salvar operação para enviar.</div>`;d.appendChild(info);box.appendChild(d)}})}
 function printOperation(){if(!$('opId').value)return toast('Salve a operação antes de imprimir.');window.print()}
 async function deleteOperation(){
@@ -428,13 +505,13 @@ $('signupBtn').onclick=async()=>{const {error}=await sb.auth.signUp({email:$('em
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
 $('newOpBtn').onclick=()=>openOp(null);$('closeEditor').onclick=()=>{$('editor').classList.add('hidden');loadOps()};$('opForm').onsubmit=saveOp;$('osSearchBtn').onclick=loadOps;$('osSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();loadOps()}});$('osSearch').addEventListener('search',loadOps);
 $('startNow').onclick=()=>{$('startAt').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$('status').value='Em andamento';toast('Início registrado. Toque em Salvar operação.')};
-$('completeBtn').onclick=async()=>{if(!$('opId').value)return toast('Salve a operação primeiro');const {data:docs}=await sb.from('documents').select('id').eq('operation_id',$('opId').value).limit(1);const {data:photos}=await sb.from('photos').select('id').eq('operation_id',$('opId').value).limit(1);if(!(docs||[]).length||!(photos||[]).length)return toast('Para concluir, anexe pelo menos 1 foto e 1 documento assinado.');$('status').value='Concluída';$('endAt').value=$('endAt').value||new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);await saveOp()};
+$('completeBtn').onclick=async()=>{const id=$('opId').value;if(!id)return toast('Salve a operação primeiro');if(signatureDirty&&signatureHasInk){await saveOp();}const {data:docs}=await sb.from('documents').select('id').eq('operation_id',id).limit(1);const {data:photos}=await sb.from('photos').select('id,file_name').eq('operation_id',id);const operationalPhotos=(photos||[]).filter(x=>!/^assinatura-cliente-/i.test(x.file_name||''));const hasSignature=await hasSavedDigitalSignature(id);if(!operationalPhotos.length)return toast('Para concluir, anexe pelo menos 1 foto da operação.');if(!(docs||[]).length&&!hasSignature)return toast('Para concluir, adicione a assinatura digital ou um documento assinado.');$('status').value='Concluída';$('endAt').value=$('endAt').value||new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);await saveOp()};
 $('printBtn').onclick=printOperation;
 $('deleteBtn').onclick=deleteOperation;
 $('sendMessage').onclick=sendMessage;
 $('saveProfile').onclick=async()=>{const {error}=await sb.from('profiles').update({full_name:$('profileName').value,phone:$('profilePhone').value}).eq('id',me.id);if(error)return toast(error.message);toast('Perfil salvo');await loadProfile()};
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['ops','messages','profile'].forEach(t=>$('tab-'+t).classList.toggle('hidden',t!==b.dataset.tab))});
-previewSelectedFiles('photos','photoList');previewSelectedFiles('documents','docList');if($('osImport'))$('osImport').addEventListener('change',importOsFile);
+previewSelectedFiles('photos','photoList');previewSelectedFiles('documents','docList');setupSignaturePad();if($('osImport'))$('osImport').addEventListener('change',importOsFile);
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').classList.remove('hidden')});$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt=null};
 init();
 
