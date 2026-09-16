@@ -85,7 +85,7 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
             <input id="osSearch" type="search" inputmode="search" autocomplete="off" placeholder="Pesquisar nº da OS" aria-label="Pesquisar número da OS" />
             <button id="osSearchBtn" type="button" class="searchBtn" aria-label="Pesquisar OS" title="Pesquisar OS">🔍</button>
           </div>
-          <button id="newOpBtn" class="adminOnly">+ Nova operação</button>
+          <button id="newOpBtn">+ Nova operação</button>
         </div>
         <div id="opsList" class="list"></div>
       </section>
@@ -110,7 +110,7 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
             <input type="hidden" id="opId" />
             <fieldset>
               <legend>1. Dados da Ordem de Serviço</legend>
-              <div class="osImportBox adminOnly">
+              <div class="osImportBox">
                 <label>Importar OS e preencher automaticamente
                   <input id="osImport" type="file" accept="image/*,application/pdf" />
                 </label>
@@ -377,7 +377,7 @@ async function importOsFile(){
   }catch(err){status.className='importStatus err';status.textContent='Não foi possível preencher automaticamente: '+(err?.message||err)}
 }
 const fieldMap={os_number:'osNumber',service:'service',client:'client',shipper:'shipper',booking:'booking',appointment:'appointment',scheduled_date:'scheduledDate',scheduled_time:'scheduledTime',vessel_voyage:'vessel',destination:'destination',container_no:'containerNo',container_type:'containerType',tare:'tare',cargo_weight:'cargoWeight',seal:'seal',dock:'dock',pickup_address:'pickup',os_notes:'osNotes',assigned_to:'assignedTo',arrival_at:'arrival',start_at:'startAt',end_at:'endAt',departure_at:'departure',invoice:'invoice',codes:'codes',products:'products',quantities:'quantities',uses_cobra:'cobra',palletized:'palletized',loose_loaded:'loose',container_checked:'containerChecked',seal_checked:'sealChecked',cargo_no_apparent_damage:'cargoOk',issues:'issues',final_notes:'finalNotes',receiver_name:'receiverName',receiver_identification:'receiverId',status:'status'};
-function payload(){const p={};Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;p[k]=el.type==='checkbox'?el.checked:(el.value||null)});p.updated_at=new Date().toISOString();if(!$('opId').value)p.created_by=me.id;return p}
+function payload(){const p={};Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;p[k]=el.type==='checkbox'?el.checked:(el.value||null)});p.updated_at=new Date().toISOString();if(!$('opId').value){p.created_by=me.id;if(profile?.role!=='admin')p.assigned_to=me.id}return p}
 async function saveOp(ev){ev?.preventDefault();const p=payload();if(!p.os_number||!p.service){toast('Preencha Nº da OS e Serviço');return}let id=$('opId').value;let res=id?await sb.from('operations').update(p).eq('id',id).select().single():await sb.from('operations').insert(p).select().single();if(res.error){toast(res.error.message);return}id=res.data.id;$('opId').value=id;try{await uploadFiles(id,'photos','operation-photos',$('photos').files);await uploadFiles(id,'documents','operation-documents',$('documents').files);$('photos').value='';$('documents').value='';toast('Operação salva com sucesso')}catch(err){toast('Operação salva, mas o anexo falhou: '+(err?.message||err))}await loadAttachments(id);await loadOps()}
 async function uploadFiles(opId,table,bucket,fileList){for(const file of Array.from(fileList||[])){const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`${opId}/${crypto.randomUUID()}-${safe}`;const up=await sb.storage.from(bucket).upload(path,file,{contentType:file.type||undefined,upsert:false});if(up.error)throw new Error(up.error.message);const meta=await sb.from(table).insert({operation_id:opId,storage_path:path,file_name:file.name,uploaded_by:me.id});if(meta.error){await sb.storage.from(bucket).remove([path]);throw new Error(meta.error.message)}}}
 function isImageFile(name){return /\.(png|jpe?g|gif|webp|heic|heif)$/i.test(name||'')}
