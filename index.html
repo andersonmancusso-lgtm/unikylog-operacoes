@@ -13,6 +13,7 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
 @media(max-width:650px){.grid2,.checks{grid-template-columns:1fr}.toolbar{align-items:stretch;flex-direction:column}.toolbar select{max-width:none}.row{align-items:stretch}.row input{flex:1}.topbar{padding-top:calc(12px + env(safe-area-inset-top))}}
 
 .attachmentPreview{display:block;width:100%;max-height:360px;object-fit:contain;border-radius:10px;background:#eef3f8;margin-bottom:8px;cursor:pointer}.fileinfo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.filename{font-weight:700;word-break:break-word}.openfile{display:inline-block;padding:9px 12px;border-radius:9px;background:var(--blue);color:#fff;text-decoration:none;font-weight:750}.fileerror{color:var(--danger);font-size:12px;margin-top:4px}.fileitem.pending{border-style:dashed}
+.osImportBox{border:1px dashed #8aa4c2;background:#f7fbff;border-radius:12px;padding:12px;margin:8px 0 14px}.osImportBox label{margin:0}.importStatus{margin-top:8px;font-size:13px;color:var(--muted)}.importStatus.ok{color:var(--success);font-weight:700}.importStatus.err{color:var(--danger);font-weight:700}.importStatus.busy{color:var(--blue);font-weight:700}
 
 @media print{
   body{background:#fff!important}.topbar,.userbar,.tabs,.toolbar,#opsList,#tab-messages,#tab-profile,.modalhead button,.actionButtons,.messageCard,.toast,input[type=file],.noPrint{display:none!important}
@@ -21,6 +22,8 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
 
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -105,6 +108,12 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
             <input type="hidden" id="opId" />
             <fieldset>
               <legend>1. Dados da Ordem de Serviço</legend>
+              <div class="osImportBox adminOnly">
+                <label>Importar OS e preencher automaticamente
+                  <input id="osImport" type="file" accept="image/*,application/pdf" />
+                </label>
+                <div id="osImportStatus" class="importStatus">Anexe a OS em PDF ou foto. O sistema lê o documento e preenche os campos que encontrar.</div>
+              </div>
               <div class="grid2">
                 <label>Nº da OS *<input id="osNumber" required /></label>
                 <label>Serviço *<input id="service" required value="Material de Peação" /></label>
@@ -221,6 +230,87 @@ async function loadEmployees(){if(!profile||profile.role!=='admin')return;const 
 async function loadOps(){if(!profile)return;let q=sb.from('operations').select('*,profiles!operations_assigned_to_fkey(full_name,email)').order('created_at',{ascending:false});const f=$('statusFilter').value;if(f)q=q.eq('status',f);const {data,error}=await q;if(error){toast(error.message);return}const list=$('opsList');list.innerHTML='';(data||[]).forEach(o=>{const d=document.createElement('div');d.className='opcard';d.innerHTML=`<h3>OS ${esc(o.os_number)}</h3><div>${esc(o.client||o.shipper||'Sem cliente')}</div><div class="meta"><span class="badge">${esc(o.status)}</span><span>${esc(o.service||'')}</span><span>${esc(o.profiles?.full_name||o.profiles?.email||'Não atribuído')}</span></div>`;d.onclick=()=>openOp(o.id);list.appendChild(d)});if(!(data||[]).length)list.innerHTML='<div class="card muted">Nenhuma operação encontrada.</div>'}
 async function openOp(id){resetForm();$('editor').classList.remove('hidden');if(!id){$('editorTitle').textContent='Nova operação';return}const {data,error}=await sb.from('operations').select('*').eq('id',id).single();if(error){toast(error.message);return}$('editorTitle').textContent='OS '+data.os_number;Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;if(el.type==='checkbox')el.checked=!!data[k];else el.value=data[k]??''});$('opId').value=data.id;await loadAttachments(data.id);await loadMessages(data.id)}
 function resetForm(){$('opForm').reset();$('opId').value='';$('photoList').innerHTML='';$('docList').innerHTML='';$('messagesList').innerHTML=''}
+
+function cleanText(v){return (v||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').replace(/\r/g,'').trim()}
+function normText(v){return cleanText(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase()}
+function setIfEmpty(id,value,force=false){const el=$(id);value=cleanText(value);if(!el||!value)return false;if(force||!cleanText(el.value)){el.value=value;return true}return false}
+function brDateToIso(v){const m=(v||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:''}
+function brTime(v){const m=(v||'').match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);return m?`${m[1].padStart(2,'0')}:${m[2]}`:''}
+function firstMatch(text,patterns){for(const re of patterns){const m=text.match(re);if(m&&cleanText(m[1]))return cleanText(m[1])}return''}
+function lineAfter(lines,labelRe){for(let i=0;i<lines.length;i++){if(labelRe.test(lines[i])){const same=lines[i].replace(labelRe,'').trim();if(same)return same;if(lines[i+1])return cleanText(lines[i+1])}}return''}
+function extractOsFields(raw){
+  const lines=raw.split(/\n+/).map(cleanText).filter(Boolean);const flat=lines.join(' ');const out={};
+  const findLine=(re)=>{const x=lines.find(l=>re.test(l));return x||''};
+  let m;
+  m=findLine(/^N[ºo°]\s*[A-Z0-9-]{6,}/i).match(/^N[ºo°]\s*([A-Z0-9-]{6,})/i);if(m)out.osNumber=m[1];
+  if(!out.osNumber){m=flat.match(/Ordem\s+de\s+Servi[cç]o.{0,80}?N[ºo°]\s*([A-Z0-9-]{6,})/i);if(m)out.osNumber=m[1]}
+  m=findLine(/^Servi[cç]o\s*:/i).match(/^Servi[cç]o\s*:\s*(.+?)(?:\s+Provedor\b|$)/i);if(m)out.service=m[1];
+  m=findLine(/^Booking\b/i).match(/^Booking\s+([A-Z0-9-]+)/i);if(m)out.booking=m[1];
+  m=findLine(/^Agendamento\b/i).match(/^Agendamento\s*(?:N[ºo°])?\s*([A-Z0-9-]+)(?:\s+(\d{2}\/\d{2}\/\d{4})\s+([0-2]\d:[0-5]\d))?/i);if(m){out.appointment=m[1];if(m[2]){out.scheduledDate=brDateToIso(m[2]);out.scheduledTime=brTime(m[3])}}
+  m=findLine(/^Navio\s*\/\s*Viagem\b/i).match(/^Navio\s*\/\s*Viagem\s+(.+?)(?:\s+Programa[cç][aã]o\b|$)/i);if(m)out.vessel=m[1];
+  m=findLine(/^Destino\s+Final\b/i).match(/^Destino\s+Final\s+(.+?)(?:\s+Service\b|$)/i);if(m)out.destination=m[1];
+  m=findLine(/^Cliente\b/i).match(/^Cliente\s+(.+?)\s+Embarcador\s+(.+)$/i);if(m){out.client=m[1];out.shipper=m[2]}
+  if(!out.client){m=flat.match(/Contratante\s*\/\s*local\s+(.+?)\s+OS\s*\//i);if(m)out.client=m[1]}
+  // Local de coleta
+  m=findLine(/^Embarcador\b/i).match(/^Embarcador\s+(.+?)(?:\s+CNPJ\b|$)/i);if(m&&!out.shipper)out.shipper=m[1];
+  const addrLine=findLine(/^Endere[cç]o\b/i);m=addrLine.match(/^Endere[cç]o\s+(.+)$/i);const addr=m?m[1]:'';
+  const munLine=findLine(/^Munic[ií]pio\b/i);m=munLine.match(/^Munic[ií]pio\s+(.+?)(?:\s+Uf\s+([A-Z]{2}))?$/i);const city=m?m[1]:'';let uf=m&&m[2]?m[2]:'';
+  if(!uf){const um=(munLine+' '+flat).match(/\bUf\s+([A-Z]{2})\b/i);if(um)uf=um[1]}
+  const bairroLine=findLine(/^Bairro\b/i);m=bairroLine.match(/^Bairro\s+(.+?)(?:\s+Cep\s+([0-9.-]{8,}))?$/i);const bairro=m?m[1]:'';let cep=m&&m[2]?m[2]:'';
+  if(!cep){const cm=(bairroLine+' '+flat).match(/\bCep\s+([0-9.-]{8,})\b/i);if(cm)cep=cm[1]}
+  out.pickup=[addr,city?(city+(uf?'/'+uf:'')):'',bairro?('Bairro '+bairro):'',cep?('CEP '+cep):''].filter(Boolean).join(' - ');
+  // Produto
+  m=findLine(/^Mercadoria\b/i).match(/^Mercadoria\s+(.+?)(?:\s+Seguro\b|$)/i);if(m)out.products=m[1];
+  // Linha de container/tipo/peso/tara. Procura uma linha que comece com o tipo ou nº do container.
+  const headerIndex=lines.findIndex(l=>/\bContainer\b.*\bTipo\b.*\bPeso\s+Carga\b.*\bTara\b/i.test(l));
+  if(headerIndex>=0){for(let i=headerIndex+1;i<Math.min(lines.length,headerIndex+5);i++){
+    const l=lines[i];if(!/\b(?:20|40|45)\s*(?:HC|HQ|DC|DV|GP)\b/i.test(l)&&!/[A-Z]{4}\d{7}/.test(l))continue;
+    const cn=(l.match(/\b([A-Z]{4}\d{7})\b/)||[])[1];if(cn)out.containerNo=cn;
+    const ty=(l.match(/\b(20|40|45)\s*(HC|HQ|DC|DV|GP)\b/i)||[]);if(ty.length)out.containerType=`${ty[1]} ${ty[2].toUpperCase()}`;
+    const nums=[...l.matchAll(/\b\d{3,}(?:[.,]\d{2})?\b/g)].map(x=>x[0]);if(nums.length>=2){out.cargoWeight=nums[0];out.tare=nums[1]}
+    // lacre alfanumérico longo, excluindo número do container e tipo
+    const toks=l.split(/\s+/).filter(x=>/^[A-Z0-9-]{6,}$/i.test(x));const seal=toks.find(x=>x!==cn&&!/^\d+(?:[.,]\d+)?$/.test(x)&&!/^(HC|HQ|DC|DV|GP)$/i.test(x));if(seal)out.seal=seal;
+    break;
+  }}
+  // Caso o container esteja em outro ponto da OS.
+  if(!out.containerNo){m=flat.match(/\b([A-Z]{4}\d{7})\b/);if(m)out.containerNo=m[1]}
+  if(!out.containerType){m=flat.match(/\b(20|40|45)\s*(HC|HQ|DC|DV|GP)\b/i);if(m)out.containerType=`${m[1]} ${m[2].toUpperCase()}`}
+  // Data/hora da execução: prioriza a linha do serviço dentro de Programação de Serviços.
+  const prog=lines.findIndex(l=>/Programa[cç][aã]o\s+de\s+Servi[cç]os/i.test(l));let candidates=[];
+  if(prog>=0){for(let i=prog+1;i<Math.min(lines.length,prog+12);i++){const dm=lines[i].match(/(\d{2}\/\d{2}\/\d{4})\s+([0-2]\d:[0-5]\d)/);if(dm)candidates.push({line:lines[i],date:dm[1],time:dm[2]})}}
+  let chosen=null;if(candidates.length){if(out.service)chosen=candidates.find(c=>normText(c.line).includes(normText(out.service)));chosen=chosen||candidates[candidates.length-1]}
+  if(chosen){out.scheduledDate=brDateToIso(chosen.date);out.scheduledTime=brTime(chosen.time)}
+  // Observações finais da OS
+  const obsIndex=lines.findIndex(l=>/^Demais\s+Observa[cç][oõ]es/i.test(l));if(obsIndex>=0)out.osNotes=lines.slice(obsIndex+1).join('\n').trim().slice(0,1800);
+  return out;
+}
+async function readPdfText(file){
+  if(!window.pdfjsLib)throw new Error('Leitor de PDF não carregou. Atualize a página e tente novamente.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:buf}).promise;let pages=[];
+  for(let i=1;i<=Math.min(pdf.numPages,8);i++){
+    const pg=await pdf.getPage(i);const tc=await pg.getTextContent();const rows=[];
+    for(const it of tc.items){const y=Math.round((it.transform?.[5]||0)*2)/2;let row=rows.find(r=>Math.abs(r.y-y)<=2);if(!row){row={y,items:[]};rows.push(row)}row.items.push({x:it.transform?.[4]||0,str:it.str||''})}
+    rows.sort((a,b)=>b.y-a.y);const text=rows.map(r=>r.items.sort((a,b)=>a.x-b.x).map(x=>x.str).join(' ').replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');pages.push(text)
+  }return pages.join('\n');
+}
+async function readImageText(file){
+  if(!window.Tesseract)throw new Error('Leitor de imagem não carregou. Atualize a página e tente novamente.');
+  const r=await Tesseract.recognize(file,'por',{logger:m=>{if(m.status==='recognizing text'){$('osImportStatus').textContent=`Lendo foto da OS… ${Math.round((m.progress||0)*100)}%`;}}});return r.data?.text||'';
+}
+function copyImportToDocuments(file){try{const dt=new DataTransfer();dt.items.add(file);$('documents').files=dt.files;previewSelectedFilesOnce('documents','docList')}catch(e){}}
+function previewSelectedFilesOnce(inputId,targetId){const input=$(inputId),box=$(targetId);const files=Array.from(input?.files||[]);if(!files.length)return;box.innerHTML='';for(const file of files){const d=document.createElement('div');d.className='fileitem pending';if(file.type?.startsWith('image/')){const img=document.createElement('img');img.className='attachmentPreview';img.src=URL.createObjectURL(file);img.alt=file.name;d.appendChild(img)}const info=document.createElement('div');info.className='fileinfo';info.innerHTML=`<div class="filename">${esc(file.name)}</div><div class="muted">OS importada — será anexada ao salvar.</div>`;d.appendChild(info);box.appendChild(d)}}
+async function importOsFile(){
+  const input=$('osImport'),status=$('osImportStatus'),file=input?.files?.[0];if(!file)return;
+  status.className='importStatus busy';status.textContent='Lendo a Ordem de Serviço…';
+  try{let text='';if(file.type==='application/pdf'||/\.pdf$/i.test(file.name))text=await readPdfText(file);else text=await readImageText(file);
+    if(cleanText(text).length<30)throw new Error('Não consegui ler texto suficiente desse arquivo. Tente um PDF original ou uma foto mais nítida.');
+    const f=extractOsFields(text);const map={osNumber:'osNumber',service:'service',client:'client',shipper:'shipper',booking:'booking',appointment:'appointment',scheduledDate:'scheduledDate',scheduledTime:'scheduledTime',vessel:'vessel',destination:'destination',containerNo:'containerNo',containerType:'containerType',tare:'tare',cargoWeight:'cargoWeight',seal:'seal',pickup:'pickup',products:'products',osNotes:'osNotes'};
+    let n=0;for(const [k,id] of Object.entries(map)){const force=(k==='service'&&cleanText($('service')?.value)==='Material de Peação');if(setIfEmpty(id,f[k],force))n++}copyImportToDocuments(file);
+    status.className='importStatus ok';status.textContent=n?`OS lida com sucesso: ${n} campos preenchidos. Confira antes de salvar.`:'OS lida, mas não encontrei campos reconhecíveis. Você pode preencher manualmente.';
+    if(n)toast(`${n} campos preenchidos pela OS`);
+  }catch(err){status.className='importStatus err';status.textContent='Não foi possível preencher automaticamente: '+(err?.message||err)}
+}
 const fieldMap={os_number:'osNumber',service:'service',client:'client',shipper:'shipper',booking:'booking',appointment:'appointment',scheduled_date:'scheduledDate',scheduled_time:'scheduledTime',vessel_voyage:'vessel',destination:'destination',container_no:'containerNo',container_type:'containerType',tare:'tare',cargo_weight:'cargoWeight',seal:'seal',dock:'dock',pickup_address:'pickup',os_notes:'osNotes',assigned_to:'assignedTo',arrival_at:'arrival',start_at:'startAt',end_at:'endAt',departure_at:'departure',invoice:'invoice',codes:'codes',products:'products',quantities:'quantities',uses_cobra:'cobra',palletized:'palletized',loose_loaded:'loose',container_checked:'containerChecked',seal_checked:'sealChecked',cargo_no_apparent_damage:'cargoOk',issues:'issues',final_notes:'finalNotes',receiver_name:'receiverName',receiver_identification:'receiverId',status:'status'};
 function payload(){const p={};Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;p[k]=el.type==='checkbox'?el.checked:(el.value||null)});p.updated_at=new Date().toISOString();if(!$('opId').value)p.created_by=me.id;return p}
 async function saveOp(ev){ev?.preventDefault();const p=payload();if(!p.os_number||!p.service){toast('Preencha Nº da OS e Serviço');return}let id=$('opId').value;let res=id?await sb.from('operations').update(p).eq('id',id).select().single():await sb.from('operations').insert(p).select().single();if(res.error){toast(res.error.message);return}id=res.data.id;$('opId').value=id;try{await uploadFiles(id,'photos','operation-photos',$('photos').files);await uploadFiles(id,'documents','operation-documents',$('documents').files);$('photos').value='';$('documents').value='';toast('Operação salva com sucesso')}catch(err){toast('Operação salva, mas o anexo falhou: '+(err?.message||err))}await loadAttachments(id);await loadOps()}
@@ -279,7 +369,7 @@ $('deleteBtn').onclick=deleteOperation;
 $('sendMessage').onclick=sendMessage;
 $('saveProfile').onclick=async()=>{const {error}=await sb.from('profiles').update({full_name:$('profileName').value,phone:$('profilePhone').value}).eq('id',me.id);if(error)return toast(error.message);toast('Perfil salvo');await loadProfile()};
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['ops','messages','profile'].forEach(t=>$('tab-'+t).classList.toggle('hidden',t!==b.dataset.tab))});
-previewSelectedFiles('photos','photoList');previewSelectedFiles('documents','docList');
+previewSelectedFiles('photos','photoList');previewSelectedFiles('documents','docList');if($('osImport'))$('osImport').addEventListener('change',importOsFile);
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').classList.remove('hidden')});$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt=null};
 init();
 
