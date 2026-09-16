@@ -15,6 +15,8 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
 .attachmentPreview{display:block;width:100%;max-height:360px;object-fit:contain;border-radius:10px;background:#eef3f8;margin-bottom:8px;cursor:pointer}.fileinfo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.filename{font-weight:700;word-break:break-word}.openfile{display:inline-block;padding:9px 12px;border-radius:9px;background:var(--blue);color:#fff;text-decoration:none;font-weight:750}.fileerror{color:var(--danger);font-size:12px;margin-top:4px}.fileitem.pending{border-style:dashed}
 .osImportBox{border:1px dashed #8aa4c2;background:#f7fbff;border-radius:12px;padding:12px;margin:8px 0 14px}.osImportBox label{margin:0}.importStatus{margin-top:8px;font-size:13px;color:var(--muted)}.importStatus.ok{color:var(--success);font-weight:700}.importStatus.err{color:var(--danger);font-weight:700}.importStatus.busy{color:var(--blue);font-weight:700}
 
+.opsToolbar{align-items:center}.osSearchBox{display:flex;gap:8px;flex:1;max-width:520px}.osSearchBox input{margin:0;min-width:0}.searchBtn{width:52px;min-width:52px;font-size:20px;padding:10px;display:flex;align-items:center;justify-content:center}.opcard{cursor:pointer;min-height:64px;display:flex;align-items:center}.opcard h3{margin:0;font-size:20px;word-break:break-word}.opcard:active{transform:scale(.995)}
+
 @media print{
   body{background:#fff!important}.topbar,.userbar,.tabs,.toolbar,#opsList,#tab-messages,#tab-profile,.modalhead button,.actionButtons,.messageCard,.toast,input[type=file],.noPrint{display:none!important}
   .container{max-width:none;padding:0}.card,fieldset{box-shadow:none!important;border:1px solid #bbb!important}.modal{position:static!important;background:#fff!important;overflow:visible!important}.modalbox{min-height:0!important;max-width:none!important;padding:0!important;background:#fff!important}.modalhead{position:static!important;background:#fff!important;color:#000!important;margin:0 0 12px!important;padding:0!important}.attachmentPreview{max-height:240px;page-break-inside:avoid}.fileitem{page-break-inside:avoid}button{display:none!important}input,textarea,select{border:0!important;padding:2px!important;background:#fff!important;color:#000!important;appearance:none!important;-webkit-appearance:none!important}legend{color:#000!important}label{break-inside:avoid}.printOnly{display:block!important}.hidden.printOnly{display:block!important}
@@ -78,11 +80,11 @@ label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:650;
       </nav>
 
       <section id="tab-ops">
-        <div class="toolbar">
-          <select id="statusFilter">
-            <option value="">Todos os status</option>
-            <option>Pendente</option><option>Em andamento</option><option>Aguardando assinatura</option><option>Concluída</option>
-          </select>
+        <div class="toolbar opsToolbar">
+          <div class="osSearchBox">
+            <input id="osSearch" type="search" inputmode="search" autocomplete="off" placeholder="Pesquisar nº da OS" aria-label="Pesquisar número da OS" />
+            <button id="osSearchBtn" type="button" class="searchBtn" aria-label="Pesquisar OS" title="Pesquisar OS">🔍</button>
+          </div>
           <button id="newOpBtn" class="adminOnly">+ Nova operação</button>
         </div>
         <div id="opsList" class="list"></div>
@@ -227,7 +229,7 @@ async function init(){
 async function enter(user){me=user;show('appView');await loadProfile();await loadEmployees();await loadOps();await loadAllMessages();subscribeRealtime()}
 async function loadProfile(){const {data,error}=await sb.from('profiles').select('*').eq('id',me.id).single();if(error){toast('Perfil ainda não disponível');return}profile=data;$('who').textContent=profile.full_name||me.email;$('roleText').textContent=profile.role==='admin'?'Administrador':'Funcionário';$('profileName').value=profile.full_name||'';$('profilePhone').value=profile.phone||'';document.querySelectorAll('.adminOnly').forEach(el=>el.classList.toggle('hidden',profile.role!=='admin'))}
 async function loadEmployees(){if(!profile||profile.role!=='admin')return;const {data}=await sb.from('profiles').select('id,full_name,email').order('full_name');$('assignedTo').innerHTML='<option value="">Não atribuído</option>'+((data||[]).map(p=>`<option value="${p.id}">${esc(p.full_name||p.email||p.id)}</option>`).join(''))}
-async function loadOps(){if(!profile)return;let q=sb.from('operations').select('*,profiles!operations_assigned_to_fkey(full_name,email)').order('created_at',{ascending:false});const f=$('statusFilter').value;if(f)q=q.eq('status',f);const {data,error}=await q;if(error){toast(error.message);return}const list=$('opsList');list.innerHTML='';(data||[]).forEach(o=>{const d=document.createElement('div');d.className='opcard';d.innerHTML=`<h3>OS ${esc(o.os_number)}</h3><div>${esc(o.client||o.shipper||'Sem cliente')}</div><div class="meta"><span class="badge">${esc(o.status)}</span><span>${esc(o.service||'')}</span><span>${esc(o.profiles?.full_name||o.profiles?.email||'Não atribuído')}</span></div>`;d.onclick=()=>openOp(o.id);list.appendChild(d)});if(!(data||[]).length)list.innerHTML='<div class="card muted">Nenhuma operação encontrada.</div>'}
+async function loadOps(){if(!profile)return;let q=sb.from('operations').select('id,os_number,created_at').order('created_at',{ascending:false});const term=($('osSearch')?.value||'').trim();if(term)q=q.ilike('os_number',`%${term}%`);const {data,error}=await q;if(error){toast(error.message);return}const list=$('opsList');list.innerHTML='';(data||[]).forEach(o=>{const d=document.createElement('div');d.className='opcard';d.innerHTML=`<h3>OS ${esc(o.os_number)}</h3>`;d.onclick=()=>openOp(o.id);list.appendChild(d)});if(!(data||[]).length)list.innerHTML='<div class="card muted">Nenhuma OS encontrada.</div>'}
 async function openOp(id){resetForm();$('editor').classList.remove('hidden');if(!id){$('editorTitle').textContent='Nova operação';return}const {data,error}=await sb.from('operations').select('*').eq('id',id).single();if(error){toast(error.message);return}$('editorTitle').textContent='OS '+data.os_number;Object.entries(fieldMap).forEach(([k,id])=>{const el=$(id);if(!el)return;if(el.type==='checkbox')el.checked=!!data[k];else el.value=data[k]??''});$('opId').value=data.id;await loadAttachments(data.id);await loadMessages(data.id)}
 function resetForm(){$('opForm').reset();$('opId').value='';$('photoList').innerHTML='';$('docList').innerHTML='';$('messagesList').innerHTML=''}
 
@@ -424,7 +426,7 @@ $('savePasswordBtn').onclick=async()=>{
 };
 $('signupBtn').onclick=async()=>{const {error}=await sb.auth.signUp({email:$('email').value,password:$('password').value});toast(error?error.message:'Acesso criado. Verifique o e-mail se a confirmação estiver ativa.')};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
-$('newOpBtn').onclick=()=>openOp(null);$('closeEditor').onclick=()=>{$('editor').classList.add('hidden');loadOps()};$('opForm').onsubmit=saveOp;$('statusFilter').onchange=loadOps;
+$('newOpBtn').onclick=()=>openOp(null);$('closeEditor').onclick=()=>{$('editor').classList.add('hidden');loadOps()};$('opForm').onsubmit=saveOp;$('osSearchBtn').onclick=loadOps;$('osSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();loadOps()}});$('osSearch').addEventListener('search',loadOps);
 $('startNow').onclick=()=>{$('startAt').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);$('status').value='Em andamento';toast('Início registrado. Toque em Salvar operação.')};
 $('completeBtn').onclick=async()=>{if(!$('opId').value)return toast('Salve a operação primeiro');const {data:docs}=await sb.from('documents').select('id').eq('operation_id',$('opId').value).limit(1);const {data:photos}=await sb.from('photos').select('id').eq('operation_id',$('opId').value).limit(1);if(!(docs||[]).length||!(photos||[]).length)return toast('Para concluir, anexe pelo menos 1 foto e 1 documento assinado.');$('status').value='Concluída';$('endAt').value=$('endAt').value||new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);await saveOp()};
 $('printBtn').onclick=printOperation;
